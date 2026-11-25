@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GateBoard Deploy — standalone</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0e13; color: #e8ecf1; line-height: 1.5; }
+main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+h1 { font-size: 24px; margin: 8px 0 4px; }
+h2 { font-size: 18px; margin: 28px 0 8px; }
+p { margin: 8px 0; color: #c3cad4; }
+code { word-break: break-all; }
+.card { background: #161b23; border: 1px solid #2a323f; border-radius: 12px; padding: 16px; margin: 12px 0; }
+button { display: block; width: 100%; padding: 16px; margin: 10px 0; font-size: 18px; font-weight: 700; border: 0; border-radius: 12px; cursor: pointer; }
+#connectBtn { background: #f0b90b; color: #111; }
+#deployBtn { background: #22c55e; color: #06210f; }
+button:disabled { background: #3a4350; color: #8a94a3; cursor: not-allowed; }
+button.small { width: auto; display: inline-block; padding: 8px 14px; font-size: 14px; margin: 6px 6px 0 0; background: #2a323f; color: #e8ecf1; }
+#status { background: #1c2530; border: 1px solid #2a323f; border-radius: 10px; padding: 12px; margin: 12px 0; white-space: pre-wrap; word-break: break-word; font-size: 14px; min-height: 44px; }
+#diag { background: #11161d; border: 1px solid #2a323f; border-radius: 10px; padding: 12px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.err { color: #ff8a8a; }
+.ok { color: #7ee2a0; }
+.muted { color: #8a94a3; font-size: 13px; }
+pre { background: #11161d; border: 1px solid #2a323f; border-radius: 10px; padding: 12px; overflow: auto; font-size: 12px; max-height: 320px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #232b36; }
+.kv:last-child { border-bottom: 0; }
+.kv b { font-weight: 600; }
+.addr { font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+<h1>GateBoard Deploy</h1>
+<p>Standalone deploy page — no wrapper, no frame. Open this link <b>inside your wallet app's own browser</b> (Binance Web3 Discover, Zerion Browser tab, Rabby Browser, Trust Wallet Browser). Not in Safari, and not by tapping a link in Muse.</p>
+<p class="muted">GateBoard — Agent ID-gated bounty board. Only Agent ID holders can post / claim. No funds held, no owner, no admin, no fee. This page never asks for a seed phrase or private key.</p>
+
+<div class="card">
+<h2 style="margin-top:0">1 &middot; Connect Wallet</h2>
+<button id="connectBtn">Connect Wallet</button>
+<div id="status">Not connected yet.</div>
+<div class="kv"><span>Address</span><b id="addr" class="addr">—</b></div>
+<div class="kv"><span>BNB balance</span><b id="bal">—</b></div>
+<div class="kv"><span>Network</span><b id="chain">—</b></div>
+<div class="kv"><span>Agent ID held?</span><b id="agent">—</b></div>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">Wallet check (diagnostics)</h2>
+<div id="diag">Checking…</div>
+<button class="small" id="copyDiagBtn">Copy diagnostics</button>
+<button class="small" id="refreshDiagBtn">Re-check now</button>
+<p class="muted">If Connect still says no wallet, tap "Copy diagnostics" and paste it to Muse — it shows exactly what this page can see.</p>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">2 &middot; Deploy the contract</h2>
+<p>Sends one contract-creation transaction on BNB Smart Chain mainnet (chain ID 56). The only constructor argument is the Agent ID contract, already baked into the deploy data.</p>
+<button id="deployBtn" disabled>Deploy GateBoard</button>
+<div class="kv"><span>Transaction</span><b id="txhash" class="addr">—</b></div>
+<div class="kv"><span>Deployed address</span><b id="deployed" class="addr">—</b></div>
+<div id="result"></div>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">3 &middot; Save your contract address</h2>
+<p>When the deploy confirms, your new GateBoard address appears above. Paste it into the GateBoard board page to switch it from preview to live.</p>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">What's being deployed</h2>
+<div class="kv"><span>Contract</span><b>GateBoard — Agent ID-gated bounty board</b></div>
+<div class="kv"><span>Network</span><b>BNB Smart Chain mainnet (chain ID 56)</b></div>
+<div class="kv"><span>Agent ID contract</span><b class="addr">0x60b9262456de011f7d15a54cdd8c48baaa8b022f</b></div>
+<div class="kv"><span>Value sent</span><b>0 BNB (no funds held)</b></div>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">BscScan verification settings</h2>
+<div class="kv"><span>Compiler</span><b>solc 0.8.20</b></div>
+<div class="kv"><span>License</span><b>MIT</b></div>
+<div class="kv"><span>Optimizer</span><b>Enabled, 200 runs</b></div>
+<div class="kv"><span>Constructor argument</span><b class="addr">0x60b9262456de011f7d15a54cdd8c48baaa8b022f</b></div>
+<p class="muted">Verify with the exact source below and these settings. BscScan normally fills the constructor argument from the deploy transaction.</p>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">GateBoard.sol</h2>
+<button class="small" id="copySolBtn">Copy source</button>
+<pre id="solSrc">// SPDX-License-Identifier: MIT
+// GateBoard — Agent ID-gated bounty board
+// Binance Agent ID Hackathon (Binance Wallet x BNB Chain)
+// Submissions: 18 Nov - 9 Dec 2026 08:00 UTC
+// Agent ID contract (BNB Chain): 0x60b9262456de011f7d15a54cdd8c48baaa8b022f
+//   SPACE ID Agent ID, ERC-721, non-transferable, name.ai
+//   Check: balanceOf(address) &gt; 0 means the address holds an Agent ID.
+//
+// What it does:
+//   Only wallets holding an Agent ID can post a bounty or claim one.
+//   Anyone can read the board. No funds are held by this contract.
+//   No BNB is deposited, escrowed, or paid out on-chain in v1.
+//   Payment for a completed bounty is arranged off-chain between
+//   creator and claimer. This keeps the contract simple and avoids
+//   any automatic or scheduled asset transfer.
+//
+// Safety / hackathon red lines (Binance rules):
+//   - No web QR-code login for Agentic Wallet. This contract does
+//     not log anyone in. The frontend connects to the user&#x27;s own
+//     injected wallet (Binance Wallet / MetaMask) and every
+//     transaction is confirmed by the user in their own wallet.
+//   - No bypass of user confirmation, no unauthorized transfers,
+//     no collection of seed phrases / private keys / pairing codes.
+//   - No owner, no admin, no mint, no pause, no fee, no upgrade.
+//     There are no owner permissions to disclose because there is
+//     no owner. Anyone can read, only Agent ID holders can write.
+//   - No &quot;Binance&quot; / &quot;BNB&quot; branding impersonation in the name.
+//     GateBoard is an independent entry, not affiliated with Binance.
+//
+// Deployment: BNB Chain mainnet (chainId 56), Solidity ^0.8.20
+// Verify on BscScan with this exact source (MIT, no constructor args).
+// Compiler: 0.8.20+ (use Remix default 0.8.20 or later, optimizer off
+//   or 200 runs — note the exact settings when you verify).
+
+pragma solidity ^0.8.20;
+
+interface IAgentID {
+    function balanceOf(address owner) external view returns (uint256);
+}
+
+contract GateBoard {
+    IAgentID public immutable agentId;
+
+    // 0 = Open, 1 = Claimed, 2 = Done, 3 = Cancelled
+    struct Bounty {
+        uint256 id;
+        address creator;
+        address claimer;
+        string title;
+        string description;
+        uint8 status;
+        uint256 createdAt;
+    }
+
+    uint256 public bountyCount;
+    mapping(uint256 =&gt; Bounty) private _bounties;
+
+    event BountyCreated(uint256 indexed id, address indexed creator, string title);
+    event BountyClaimed(uint256 indexed id, address indexed claimer);
+    event BountyCompleted(uint256 indexed id, address indexed creator);
+    event BountyCancelled(uint256 indexed id, address indexed creator);
+
+    error AgentIdRequired();
+    error BountyNotFound();
+    error BountyNotOpen();
+    error BountyNotClaimed();
+    error CannotClaimOwn();
+    error NotCreator();
+    error EmptyTitle();
+    error TitleTooLong();
+    error DescriptionTooLong();
+
+    constructor(address agentIdAddress) {
+        agentId = IAgentID(agentIdAddress);
+    }
+
+    function hasAgentId(address user) public view returns (bool) {
+        return agentId.balanceOf(user) &gt; 0;
+    }
+
+    modifier onlyAgentHolder() {
+        if (!hasAgentId(msg.sender)) revert AgentIdRequired();
+        _;
+    }
+
+    function createBounty(string calldata title, string calldata description)
+        external
+        onlyAgentHolder
+        returns (uint256 id)
+    {
+        if (bytes(title).length == 0) revert EmptyTitle();
+        if (bytes(title).length &gt; 100) revert TitleTooLong();
+        if (bytes(description).length &gt; 500) revert DescriptionTooLong();
+
+        id = bountyCount;
+        _bounties[id] = Bounty({
+            id: id,
+            creator: msg.sender,
+            claimer: address(0),
+            title: title,
+            description: description,
+            status: 0,
+            createdAt: block.timestamp
+        });
+        bountyCount = id + 1;
+
+        emit BountyCreated(id, msg.sender, title);
+    }
+
+    function claimBounty(uint256 id) external onlyAgentHolder {
+        Bounty storage b = _bounties[id];
+        if (b.creator == address(0)) revert BountyNotFound();
+        if (b.status != 0) revert BountyNotOpen();
+        if (msg.sender == b.creator) revert CannotClaimOwn();
+
+        b.claimer = msg.sender;
+        b.status = 1;
+        emit BountyClaimed(id, msg.sender);
+    }
+
+    function completeBounty(uint256 id) external {
+        Bounty storage b = _bounties[id];
+        if (b.creator == address(0)) revert BountyNotFound();
+        if (b.status != 1) revert BountyNotClaimed();
+        if (msg.sender != b.creator) revert NotCreator();
+
+        b.status = 2;
+        emit BountyCompleted(id, msg.sender);
+    }
+
+    function cancelBounty(uint256 id) external {
+        Bounty storage b = _bounties[id];
+        if (b.creator == address(0)) revert BountyNotFound();
+        if (b.status != 0) revert BountyNotOpen();
+        if (msg.sender != b.creator) revert NotCreator();
+
+        b.status = 3;
+        emit BountyCancelled(id, msg.sender);
+    }
+
+    function getBounty(uint256 id) external view returns (Bounty memory) {
+        Bounty memory b = _bounties[id];
+        if (b.creator == address(0)) revert BountyNotFound();
+        return b;
+    }
+
+    function getBounties(uint256 start, uint256 count)
+        external
+        view
+        returns (Bounty[] memory out)
+    {
+        if (start &gt;= bountyCount) return new Bounty[](0);
+        uint256 end = start + count;
+        if (end &gt; bountyCount) end = bountyCount;
+        out = new Bounty[](end - start);
+        for (uint256 i = start; i &lt; end; i++) {
+            out[i - start] = _bounties[i];
+        }
+    }
+}
+</pre>
+</div>
+<p class="muted">Standalone page. No libraries, no fonts, no server, no tracking. Deploy data is fixed and identical to the compiled build (solc 0.8.20, optimizer on, 200 runs).</p>
+</main>
+<script>
+"use strict";
+var AGENT_ID = "0x60b9262456de011f7d15a54cdd8c48baaa8b022f";
+var DEPLOY_DATA = "0x60a060405234801561000f575f80fd5b5060405161109038038061109083398101604081905261002e9161003f565b6001600160a01b031660805261006c565b5f6020828403121561004f575f80fd5b81516001600160a01b0381168114610065575f80fd5b9392505050565b60805161100561008b5f395f8181610149015261062301526110055ff3fe608060405234801561000f575f80fd5b5060043610610090575f3560e01c80634eab3ef2116100635780634eab3ef2146100fb5780636d2008a51461011e578063e5e5dff114610131578063e84f43b714610144578063ee8c4bbf14610183575f80fd5b8063139005ab146100945780633d3b5dab146100a95780633e362c96146100d257806344021ad7146100e8575b5f80fd5b6100a76100a2366004610b8c565b6101a3565b005b6100bc6100b7366004610ba3565b610271565b6040516100c99190610c83565b60405180910390f35b6100da5f5481565b6040519081526020016100c9565b6100a76100f6366004610b8c565b6104f9565b61010e610109366004610ce3565b610600565b60405190151581526020016100c9565b6100da61012c366004610d55565b610693565b6100a761013f366004610b8c565b6108c0565b61016b7f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020016100c9565b610196610191366004610b8c565b61098c565b6040516100c99190610dbc565b5f818152600160208190526040909120908101546001600160a01b03166101dd576040516324ce57e760e21b815260040160405180910390fd5b600581015460ff16600114610205576040516356f4153160e11b815260040160405180910390fd5b60018101546001600160a01b03163314610232576040516393687c0b60e01b815260040160405180910390fd5b60058101805460ff19166002179055604051339083907f6e80468476477173385310bec3d541a056f5384af669a4220a2b0e367b8f5ed6905f90a35050565b60605f5483106102b357604080515f80825260208201909252906102ab565b610298610b3f565b8152602001906001900390816102905790505b5090506104f3565b5f6102be8385610df6565b90505f548111156102cd57505f545b6102d78482610e09565b67ffffffffffffffff8111156102ef576102ef610dce565b60405190808252806020026020018201604052801561032857816020015b610315610b3f565b81526020019060019003908161030d5790505b509150835b818110156104f0575f81815260016020818152604092839020835160e08101855281548152928101546001600160a01b039081169284019290925260028101549091169282019290925260038201805491929160608401919061038f90610e1c565b80601f01602080910402602001604051908101604052809291908181526020018280546103bb90610e1c565b80156104065780601f106103dd57610100808354040283529160200191610406565b820191905f5260205f20905b8154815290600101906020018083116103e957829003601f168201915b5050505050815260200160048201805461041f90610e1c565b80601f016020809104026020016040519081016040528092919081815260200182805461044b90610e1c565b80156104965780601f1061046d57610100808354040283529160200191610496565b820191905f5260205f20905b81548152906001019060200180831161047957829003601f168201915b5050509183525050600582015460ff166020820152600690910154604090910152836104c28784610e09565b815181106104d2576104d2610e54565b602002602001018190525080806104e890610e68565b91505061032d565b50505b92915050565b61050233610600565b61051f576040516341aaf0fd60e01b815260040160405180910390fd5b5f818152600160208190526040909120908101546001600160a01b0316610559576040516324ce57e760e21b815260040160405180910390fd5b600581015460ff161561057f57604051631213349960e21b815260040160405180910390fd5b60018101546001600160a01b031633036105ac5760405163e092b23960e01b815260040160405180910390fd5b6002810180546001600160a01b0319163390811790915560058201805460ff1916600117905560405183907fbf59c0d059a57ebf273b4b1643599fc4b48cf5effdd82113a740ed64d262ec93905f90a35050565b6040516370a0823160e01b81526001600160a01b0382811660048301525f9182917f000000000000000000000000000000000000000000000000000000000000000016906370a0823190602401602060405180830381865afa158015610668573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061068c9190610e80565b1192915050565b5f61069d33610600565b6106ba576040516341aaf0fd60e01b815260040160405180910390fd5b5f8490036106db576040516352ddcdef60e11b815260040160405180910390fd5b60648411156106fd576040516324a25c5760e01b815260040160405180910390fd5b6101f482111561072057604051630d7cfc5960e41b815260040160405180910390fd5b5f5490506040518060e00160405280828152602001336001600160a01b031681526020015f6001600160a01b0316815260200186868080601f0160208091040260200160405190810160405280939291908181526020018383808284375f92019190915250505090825250604080516020601f8701819004810282018101909252858152918101919086908690819084018382808284375f920182905250938552505050602080830182905242604093840152848252600180825291839020845181559084015191810180546001600160a01b039384166001600160a01b03199182161790915592840151600282018054919093169316929092179055606082015160038201906108319082610ee5565b50608082015160048201906108469082610ee5565b5060a082015160058201805460ff191660ff90921691909117905560c090910151600690910155610878816001610df6565b5f55604051339082907f7632d0f1c9149d7c7695d1f563f7154b106985f8d2d0b430dbd465ae3ab25b54906108b09089908990610fa1565b60405180910390a3949350505050565b5f818152600160208190526040909120908101546001600160a01b03166108fa576040516324ce57e760e21b815260040160405180910390fd5b600581015460ff161561092057604051631213349960e21b815260040160405180910390fd5b60018101546001600160a01b0316331461094d576040516393687c0b60e01b815260040160405180910390fd5b60058101805460ff19166003179055604051339083907fbe34663bc2803ca9be398afdbd7e0bd537378360b743b76b170e3421fbe38450905f90a35050565b610994610b3f565b5f828152600160208181526040808420815160e08101835281548152938101546001600160a01b03908116938501939093526002810154909216908301526003810180546060840191906109e790610e1c565b80601f0160208091040260200160405190810160405280929190818152602001828054610a1390610e1c565b8015610a5e5780601f10610a3557610100808354040283529160200191610a5e565b820191905f5260205f20905b815481529060010190602001808311610a4157829003601f168201915b50505050508152602001600482018054610a7790610e1c565b80601f0160208091040260200160405190810160405280929190818152602001828054610aa390610e1c565b8015610aee5780601f10610ac557610100808354040283529160200191610aee565b820191905f5260205f20905b815481529060010190602001808311610ad157829003601f168201915b5050509183525050600582015460ff166020808301919091526006909201546040909101528101519091506001600160a01b03166104f3576040516324ce57e760e21b815260040160405180910390fd5b6040518060e001604052805f81526020015f6001600160a01b031681526020015f6001600160a01b0316815260200160608152602001606081526020015f60ff1681526020015f81525090565b5f60208284031215610b9c575f80fd5b5035919050565b5f8060408385031215610bb4575f80fd5b50508035926020909101359150565b5f81518084525f5b81811015610be757602081850181015186830182015201610bcb565b505f602082860101526020601f19601f83011685010191505092915050565b805182525f602082015160018060a01b0380821660208601528060408501511660408601525050606082015160e06060850152610c4660e0850182610bc3565b905060808301518482036080860152610c5f8282610bc3565b91505060ff60a08401511660a085015260c083015160c08501528091505092915050565b5f602080830181845280855180835260408601915060408160051b87010192508387015f5b82811015610cd657603f19888603018452610cc4858351610c06565b94509285019290850190600101610ca8565b5092979650505050505050565b5f60208284031215610cf3575f80fd5b81356001600160a01b0381168114610d09575f80fd5b9392505050565b5f8083601f840112610d20575f80fd5b50813567ffffffffffffffff811115610d37575f80fd5b602083019150836020828501011115610d4e575f80fd5b9250929050565b5f805f8060408587031215610d68575f80fd5b843567ffffffffffffffff80821115610d7f575f80fd5b610d8b88838901610d10565b90965094506020870135915080821115610da3575f80fd5b50610db087828801610d10565b95989497509550505050565b602081525f610d096020830184610c06565b634e487b7160e01b5f52604160045260245ffd5b634e487b7160e01b5f52601160045260245ffd5b808201808211156104f3576104f3610de2565b818103818111156104f3576104f3610de2565b600181811c90821680610e3057607f821691505b602082108103610e4e57634e487b7160e01b5f52602260045260245ffd5b50919050565b634e487b7160e01b5f52603260045260245ffd5b5f60018201610e7957610e79610de2565b5060010190565b5f60208284031215610e90575f80fd5b5051919050565b601f821115610ee0575f81815260208120601f850160051c81016020861015610ebd5750805b601f850160051c820191505b81811015610edc57828155600101610ec9565b5050505b505050565b815167ffffffffffffffff811115610eff57610eff610dce565b610f1381610f0d8454610e1c565b84610e97565b602080601f831160018114610f46575f8415610f2f5750858301515b5f19600386901b1c1916600185901b178555610edc565b5f85815260208120601f198616915b82811015610f7457888601518255948401946001909101908401610f55565b5085821015610f9157878501515f19600388901b60f8161c191681555b5050505050600190811b01905550565b60208152816020820152818360408301375f818301604090810191909152601f909201601f1916010191905056fea2646970667358221220b3b81a145fcd5cbd7a7ee8a775bd7b19ac2451fa91b4bd30b03db4925dac5ca964736f6c6343000814003300000000000000000000000060b9262456de011f7d15a54cdd8c48baaa8b022f";
+var CHAIN_ID_HEX = "0x38"; // 56
+var provider = null;
+var account = null;
+var eip6963 = [];
+
+function el(id){ return document.getElementById(id); }
+function setStatus(msg, cls){ var s = el("status"); s.textContent = msg; s.className = cls || ""; }
+function hexToInt(h){ try { return parseInt(h, 16); } catch (e) { return null; } }
+
+function isUsable(p){
+  return p && typeof p.request === "function";
+}
+function findProvider(){
+  // 1. Binance Web3 Wallet
+  try { if (window.binancew3w && isUsable(window.binancew3w.ethereum)) return window.binancew3w.ethereum; } catch (e) {}
+  // 2. Standard injected provider
+  try { if (isUsable(window.ethereum)) return window.ethereum; } catch (e) {}
+  // 3. BinanceChain
+  try { if (isUsable(window.BinanceChain)) return window.BinanceChain; } catch (e) {}
+  // 4. Any isBinance entry in providers array
+  try {
+    if (window.ethereum && window.ethereum.providers) {
+      for (var i = 0; i < window.ethereum.providers.length; i++) {
+        var p = window.ethereum.providers[i];
+        if (p && p.isBinance && isUsable(p)) return p;
+      }
+    }
+  } catch (e) {}
+  // 5. Any EIP-6963 announced provider
+  for (var j = 0; j < eip6963.length; j++) {
+    if (isUsable(eip6963[j].provider)) return eip6963[j].provider;
+  }
+  // 6. First usable provider in providers array
+  try {
+    if (window.ethereum && window.ethereum.providers) {
+      for (var k = 0; k < window.ethereum.providers.length; k++) {
+        if (isUsable(window.ethereum.providers[k])) return window.ethereum.providers[k];
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+function rescanProvider(){
+  provider = findProvider();
+  return provider;
+}
+
+// EIP-6963 discovery (Zerion, Rabby, etc. announce this way)
+window.addEventListener("eip6963:announceProvider", function(ev){
+  try {
+    var d = ev.detail || {};
+    var name = (d.info && (d.info.name || d.info.rdns)) || "unknown";
+    var seen = false;
+    for (var i = 0; i < eip6963.length; i++) { if (eip6963[i].name === name) seen = true; }
+    if (!seen) eip6963.push({ name: name, provider: d.provider });
+    if (!provider) provider = findProvider();
+    refreshDiag();
+  } catch (e) {}
+});
+function requestEIP6963(){
+  try { window.dispatchEvent(new Event("eip6963:requestProvider")); } catch (e) {}
+}
+if (window.ethereum && window.ethereum.addEventListener) {
+  try { window.ethereum.addEventListener("ethereum#initialized", function(){ rescanProvider(); refreshDiag(); }); } catch (e) {}
+}
+
+function diagText(){
+  var lines = [];
+  lines.push("Browser: " + (navigator.userAgent || "").slice(0, 80));
+  lines.push("window.ethereum: " + (typeof window.ethereum !== "undefined" ? "yes" : "no"));
+  if (window.ethereum) {
+    var flags = [];
+    if (window.ethereum.isZerion) flags.push("isZerion");
+    if (window.ethereum.isRabby) flags.push("isRabby");
+    if (window.ethereum.isBinance) flags.push("isBinance");
+    if (window.ethereum.isMetaMask) flags.push("isMetaMask");
+    if (window.ethereum.isTrust) flags.push("isTrust");
+    lines.push("ethereum flags: " + (flags.length ? flags.join(", ") : "none"));
+    lines.push("ethereum.providers: " + (window.ethereum.providers ? window.ethereum.providers.length : "n/a"));
+  }
+  lines.push("window.binancew3w.ethereum: " + (window.binancew3w && window.binancew3w.ethereum ? "yes" : "no"));
+  lines.push("window.BinanceChain: " + (typeof window.BinanceChain !== "undefined" ? "yes" : "no"));
+  lines.push("EIP-6963 providers: " + (eip6963.length ? eip6963.map(function(x){ return x.name; }).join(", ") : "none yet"));
+  lines.push("provider found by page: " + (provider ? "yes" : "no"));
+  lines.push("chain: " + (el("chain").textContent || "unknown"));
+  lines.push("address: " + (account || "not connected"));
+  return lines.join("\n");
+}
+function refreshDiag(){
+  rescanProvider();
+  el("diag").textContent = diagText();
+}
+function detectProvider(){
+  rescanProvider();
+  requestEIP6963();
+  refreshDiag();
+}
+window.addEventListener("load", function(){
+  detectProvider();
+  setTimeout(detectProvider, 500);
+  setTimeout(detectProvider, 1500);
+  setTimeout(detectProvider, 3000);
+  var n = 0;
+  var iv = setInterval(function(){ n++; refreshDiag(); if (n >= 5) clearInterval(iv); }, 2000);
+});
+el("refreshDiagBtn").addEventListener("click", function(){ requestEIP6963(); refreshDiag(); });
+el("copyDiagBtn").addEventListener("click", function(){
+  var t = diagText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(function(){ el("copyDiagBtn").textContent = "Copied \u2713"; setTimeout(function(){ el("copyDiagBtn").textContent = "Copy diagnostics"; }, 2000); });
+  } else { window.prompt("Copy diagnostics:", t); }
+});
+el("copySolBtn").addEventListener("click", function(){
+  var t = el("solSrc").textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(function(){ el("copySolBtn").textContent = "Copied \u2713"; setTimeout(function(){ el("copySolBtn").textContent = "Copy source"; }, 2000); });
+  }
+});
+
+function balanceOfCall(addr){
+  // balanceOf(address) selector 0x70a08231, padded address
+  var data = "0x70a08231" + "000000000000000000000000" + addr.slice(2).toLowerCase();
+  return provider.request({ method: "eth_call", params: [{ to: AGENT_ID, data: data }, "latest"] });
+}
+function refreshAccountInfo(){
+  if (!provider || !account) return;
+  provider.request({ method: "eth_chainId" }).then(function(cid){
+    el("chain").textContent = cid + (hexToInt(cid) === 56 ? " (BNB Smart Chain)" : " (NOT chain 56)");
+    var ok = hexToInt(cid) === 56;
+    el("deployBtn").disabled = !ok;
+    if (!ok) setStatus("Connected, but you are on chain " + hexToInt(cid) + ", not BNB Smart Chain (56). Tap Connect again and approve the switch, or switch networks in your wallet.", "err");
+  }).catch(function(){});
+  provider.request({ method: "eth_getBalance", params: [account, "latest"] }).then(function(bal){
+    try { var wei = BigInt(bal); var bnb = Number(wei) / 1e18; el("bal").textContent = bnb.toFixed(4) + " BNB"; } catch (e) { el("bal").textContent = bal; }
+  }).catch(function(){ el("bal").textContent = "unknown"; });
+  balanceOfCall(account).then(function(r){
+    var holds = false;
+    try { holds = BigInt(r) > 0n; } catch (e) {}
+    el("agent").textContent = holds ? "Yes — holds an Agent ID" : "No — this address holds no Agent ID";
+  }).catch(function(){ el("agent").textContent = "unknown"; });
+  refreshDiag();
+}
+
+el("connectBtn").addEventListener("click", function(){
+  rescanProvider();
+  requestEIP6963();
+  refreshDiag();
+  if (!provider) {
+    setStatus("No wallet provider found in this browser. Open this link inside your wallet app's own browser — Binance Web3 Discover (Wallets > Web3 > Discover), Zerion (Browser tab), Rabby (Browser), or Trust Wallet (Browser) — not in Safari and not by tapping the link in Muse. If you are already inside a wallet browser and still see this, tap 'Copy diagnostics' and send it to Muse.", "err");
+    return;
+  }
+  setStatus("Connecting… approve in your wallet if it asks.");
+  provider.request({ method: "eth_requestAccounts" }).then(function(accounts){
+    if (!accounts || !accounts.length) { setStatus("No account returned. Try again.", "err"); return; }
+    account = accounts[0];
+    el("addr").textContent = account;
+    return provider.request({ method: "eth_chainId" });
+  }).then(function(cid){
+    if (cid === undefined) return;
+    if (hexToInt(cid) !== 56) {
+      setStatus("Switching to BNB Smart Chain (56)… approve the switch in your wallet.");
+      return provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID_HEX }] }).catch(function(err){
+        if (err && err.code === 4902) {
+          return provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: CHAIN_ID_HEX, chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: ["https://bsc-dataseed.binance.org/"], blockExplorerUrls: ["https://bscscan.com"] }] });
+        }
+        throw err;
+      });
+    }
+  }).then(function(){
+    setStatus("Connected on BNB Smart Chain (56). You can deploy now.", "ok");
+    refreshAccountInfo();
+  }).catch(function(err){
+    setStatus("Connect failed: " + (err && err.message ? err.message : err), "err");
+  });
+});
+
+el("deployBtn").addEventListener("click", function(){
+  if (!provider || !account) { setStatus("Connect your wallet first.", "err"); return; }
+  el("deployBtn").disabled = true;
+  setStatus("Sending deploy transaction… confirm it in your wallet.");
+  provider.request({ method: "eth_sendTransaction", params: [{ from: account, data: DEPLOY_DATA, value: "0x0" }] }).then(function(txHash){
+    el("txhash").textContent = txHash;
+    setStatus("Sent. Waiting for confirmation…\nTx: " + txHash, "ok");
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      provider.request({ method: "eth_getTransactionReceipt", params: [txHash] }).then(function(rc){
+        if (rc && rc.contractAddress) {
+          clearInterval(iv);
+          el("deployed").textContent = rc.contractAddress;
+          el("result").innerHTML = '<p class="ok">Deployed! Contract address: <span class="addr">' + rc.contractAddress + '</span></p>'
+            + '<p><a style="color:#7db8ff" href="https://bscscan.com/address/' + rc.contractAddress + '" target="_blank" rel="noopener">View on BscScan</a></p>'
+            + '<p class="muted">Copy this address and paste it into the GateBoard board page to go live.</p>';
+          setStatus("Confirmed. GateBoard deployed at " + rc.contractAddress, "ok");
+          el("deployBtn").disabled = false;
+        } else if (tries > 60) {
+          clearInterval(iv);
+          setStatus("Still waiting after ~2 min. Check the tx on BscScan: " + txHash, "");
+          el("deployBtn").disabled = false;
+        }
+      }).catch(function(){});
+    }, 2000);
+  }).catch(function(err){
+    setStatus("Deploy failed: " + (err && err.message ? err.message : err), "err");
+    el("deployBtn").disabled = false;
+  });
+});
+</script>
+</body>
+</html>
