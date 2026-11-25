@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Agent ID-Gated Bounty Board</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f6f6f3;
+        --surface: #ffffff;
+        --surface-2: #efefea;
+        --ink: #16181d;
+        --muted: #5b6068;
+        --line: #e0e1da;
+        --gold: #f0b90b;
+        --gold-ink: #7a5b00;
+        --gold-soft: #fdf3cd;
+        --ok: #166b3f;
+        --ok-soft: #e0f2e6;
+        --warn: #8f5c00;
+        --warn-soft: #faefd4;
+        --err: #b3261e;
+        --err-soft: #fbe7e4;
+        --chip: #eceee8;
+        --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1013;
+          --surface: #17181d;
+          --surface-2: #1e2026;
+          --ink: #f4f4f1;
+          --muted: #a4aab4;
+          --line: #272931;
+          --gold-ink: #f5cd4d;
+          --gold-soft: #2e270d;
+          --ok: #4cc38a;
+          --ok-soft: #122a1e;
+          --warn: #e8ac3d;
+          --warn-soft: #2d2210;
+          --err: #ff8a80;
+          --err-soft: #331714;
+          --chip: #23252c;
+        }
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+      }
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+      a { color: var(--gold-ink); text-underline-offset: 3px; }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px 72px; }
+      h1, h2, h3 { font-family: "Bricolage Grotesque", "Public Sans", sans-serif; line-height: 1.12; margin: 0; }
+      h2 { font-size: clamp(1.45rem, 3.4vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
+      h3 { font-size: 1.08rem; font-weight: 700; }
+      .mono { font-family: var(--mono); font-size: 0.86em; word-break: break-all; }
+      section { margin-top: 56px; }
+      .section-head { margin-bottom: 18px; }
+      .section-head p { color: var(--muted); margin: 8px 0 0; max-width: 62ch; }
+
+      /* ---------- Hero + gate ---------- */
+      .hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 28px; padding-top: 40px; align-items: start; }
+      .product-name { font-family: var(--mono); font-size: 0.85rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-ink); font-weight: 700; }
+      .hero h1 { font-size: clamp(2rem, 5.4vw, 3.3rem); font-weight: 800; letter-spacing: -0.02em; margin-top: 10px; }
+      .hero h1 .key { box-shadow: inset 0 -0.32em 0 var(--gold); }
+      .hero .lede { color: var(--muted); font-size: 1.06rem; margin: 16px 0 0; max-width: 54ch; }
+      .hero .lede strong { color: var(--ink); }
+      .fact-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+      .fact { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font-size: 0.86rem; font-weight: 600; }
+      .fact span { color: var(--muted); font-weight: 500; }
+      .fact .cd { color: var(--gold-ink); }
+
+      .gate-card { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 14px; padding: 22px; }
+      .gate-card h2 { font-size: 1.3rem; }
+      .gate-card .sub { color: var(--muted); font-size: 0.93rem; margin: 8px 0 0; }
+      .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 13px; font-weight: 700; font-size: 0.88rem; margin-top: 16px; background: var(--chip); color: var(--ink); }
+      .pill::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+      .pill.ok { background: var(--ok-soft); color: var(--ok); }
+      .pill.ok::before { background: var(--ok); }
+      .pill.warn { background: var(--warn-soft); color: var(--warn); }
+      .pill.warn::before { background: var(--warn); }
+      .pill.err { background: var(--err-soft); color: var(--err); }
+      .pill.err::before { background: var(--err); }
+      .pill.busy::before { background: var(--gold); }
+      .gate-msg { margin: 12px 0 0; font-size: 0.94rem; }
+      .gate-msg:empty { display: none; }
+      .gate-details { margin: 16px 0 0; border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 9px; font-size: 0.9rem; }
+      .gate-details .row { display: flex; justify-content: space-between; gap: 14px; }
+      .gate-details dt { color: var(--muted); flex: none; }
+      .gate-details dd { margin: 0; text-align: right; font-weight: 600; }
+      .gate-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+      .btn { appearance: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 10px; padding: 9px 18px; font: inherit; font-weight: 700; font-size: 0.95rem; cursor: pointer; min-height: 44px; }
+      .btn:hover { filter: brightness(0.97); }
+      .btn:active { transform: translateY(1px); }
+      .btn.primary { background: var(--gold); border-color: var(--gold); color: #191204; }
+      .btn.small { min-height: 38px; padding: 6px 14px; font-size: 0.88rem; }
+      .btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; }
+      .gate-note { font-size: 0.84rem; color: var(--muted); margin: 14px 0 0; }
+
+      /* ---------- Board + form ---------- */
+      .board-grid { display: grid; grid-template-columns: 7fr 5fr; gap: 24px; align-items: start; }
+      .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+      .board-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+      .mode-badge { font-size: 0.8rem; font-weight: 700; border-radius: 999px; padding: 5px 11px; background: var(--warn-soft); color: var(--warn); }
+      .mode-badge.live { background: var(--ok-soft); color: var(--ok); }
+      .board-toolbar .spacer { flex: 1; }
+      .board-msg { font-size: 0.9rem; margin: 0 0 14px; }
+      .board-msg:empty { display: none; }
+      .bounty { border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+      .bounty + .bounty { margin-top: 12px; }
+      .bounty-top { display: flex; align-items: flex-start; gap: 10px; }
+      .bounty h3 { flex: 1; font-size: 1.02rem; }
+      .status-chip { flex: none; font-size: 0.76rem; font-weight: 700; border-radius: 999px; padding: 4px 10px; background: var(--chip); }
+      .status-chip.open { background: var(--ok-soft); color: var(--ok); }
+      .status-chip.claimed { background: var(--gold-soft); color: var(--gold-ink); }
+      .status-chip.done { background: var(--chip); color: var(--muted); }
+      .status-chip.cancelled { background: var(--err-soft); color: var(--err); }
+      .bounty p { margin: 8px 0 0; color: var(--muted); font-size: 0.94rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .bounty-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 0.83rem; color: var(--muted); }
+      .bounty-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+      .empty-note { color: var(--muted); font-size: 0.94rem; border: 1px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; }
+      form label { display: block; font-weight: 700; font-size: 0.92rem; margin: 16px 0 6px; }
+      form label:first-of-type { margin-top: 4px; }
+      form input[type="text"], form textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; font-size: 0.97rem; padding: 10px 12px; }
+      form textarea { min-height: 110px; resize: vertical; }
+      .counter { font-size: 0.8rem; color: var(--muted); text-align: right; margin-top: 4px; font-family: var(--mono); }
+      .form-note { font-size: 0.86rem; color: var(--muted); margin: 12px 0 0; }
+      .form-msg { font-size: 0.92rem; margin: 12px 0 0; }
+      .form-msg:empty { display: none; }
+
+      /* ---------- Steps ---------- */
+      .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+      .step .num { font-family: "Bricolage Grotesque", sans-serif; font-size: 2rem; font-weight: 800; color: var(--gold-ink); line-height: 1; }
+      .step h3 { margin-top: 10px; }
+      .step p { color: var(--muted); font-size: 0.93rem; margin: 8px 0 0; }
+
+      /* ---------- Judges ---------- */
+      .judge-grid { display: grid; grid-template-columns: 5fr 7fr; gap: 24px; align-items: start; }
+      .facts { margin: 0; display: grid; gap: 0; }
+      .facts .row { display: grid; grid-template-columns: 118px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 0.93rem; }
+      .facts .row:last-child { border-bottom: 0; }
+      .facts dt { color: var(--muted); font-weight: 600; }
+      .facts dd { margin: 0; font-weight: 600; }
+      .facts dd .light { font-weight: 400; color: var(--muted); }
+      .score-row { padding: 13px 0; border-bottom: 1px solid var(--line); }
+      .score-row:last-child { border-bottom: 0; }
+      .score-top { display: flex; justify-content: space-between; gap: 12px; font-weight: 700; font-size: 0.95rem; }
+      .score-top .pct { font-family: var(--mono); color: var(--gold-ink); }
+      .bar { height: 9px; background: var(--surface-2); border-radius: 99px; margin-top: 8px; overflow: hidden; }
+      .bar i { display: block; height: 100%; background: var(--gold); border-radius: 99px; }
+      .score-row p { color: var(--muted); font-size: 0.9rem; margin: 8px 0 0; }
+      .req30 { background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin-top: 18px; font-size: 0.94rem; }
+      .req30 strong { display: block; margin-bottom: 4px; }
+      .link-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; font-size: 0.93rem; }
+
+      /* ---------- Checklist ---------- */
+      .checklist { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 10px; }
+      .checklist li { counter-increment: step; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px 15px 58px; position: relative; font-size: 0.95rem; }
+      .checklist li::before { content: counter(step); position: absolute; left: 16px; top: 13px; width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: #191204; font-weight: 800; font-family: "Bricolage Grotesque", sans-serif; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; }
+      .checklist li strong { display: block; margin-bottom: 2px; }
+      .checklist li span { color: var(--muted); }
+
+      /* ---------- Share copy ---------- */
+      .copy-grid { display: grid; gap: 16px; }
+      .copy-block { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+      .copy-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+      .copy-head h3 { flex: 1; }
+      .copy-text { background: var(--surface-2); border-radius: 10px; padding: 15px 16px; font-size: 0.93rem; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+
+      footer { margin-top: 64px; border-top: 1px solid var(--line); padding-top: 20px; color: var(--muted); font-size: 0.87rem; display: grid; gap: 6px; }
+
+      @media (max-width: 860px) {
+        .hero, .board-grid, .judge-grid { grid-template-columns: 1fr; }
+        .steps { grid-template-columns: 1fr; }
+        .hero { padding-top: 26px; }
+        section { margin-top: 44px; }
+        .facts .row { grid-template-columns: 96px 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <!-- ============ GATE CHECK ============ -->
+      <div class="hero">
+        <div>
+          <div class="product-name">GateBoard</div>
+          <h1>A bounty board where your <span class="key">Agent ID is the key</span>.</h1>
+          <p class="lede">Anyone can read the board. Only wallets holding a Binance Agent ID — a <strong>name.ai</strong> — can post or claim a bounty. That rule isn't a setting on this page: the GateBoard contract checks <strong>balanceOf</strong> on the Agent ID contract before it accepts any write, so a wallet without an Agent ID simply cannot get in.</p>
+          <div class="fact-strip">
+            <div class="fact">Binance Agent ID Hackathon <span>· Binance Wallet × BNB Chain</span></div>
+            <div class="fact">Prize pool <span>60,000 USDC</span></div>
+            <div class="fact">Submissions close <span>9 Dec 2026, 08:00 UTC</span> <span class="cd" id="countdown"></span></div>
+          </div>
+        </div>
+
+        <div class="gate-card" id="gateCard">
+          <h2>Check your Agent ID</h2>
+          <p class="sub">Connect the wallet that holds your Agent ID. The check is a read-only <span class="mono">balanceOf</span> call against the Agent ID contract on BNB Chain — nothing is signed and nothing moves.</p>
+          <div class="pill" id="gatePill" role="status">Not connected</div>
+          <p class="gate-msg" id="gateMsg" aria-live="polite"></p>
+          <dl class="gate-details">
+            <div class="row"><dt>Wallet</dt><dd class="mono" id="gateWallet">—</dd></div>
+            <div class="row"><dt>Network</dt><dd id="gateNetwork">—</dd></div>
+            <div class="row"><dt>Agent ID check</dt><dd id="gateResult">—</dd></div>
+          </dl>
+          <div class="gate-actions">
+            <button class="btn primary" id="connectBtn" type="button">Connect wallet</button>
+            <button class="btn" id="switchBtn" type="button" hidden>Switch to BNB Chain</button>
+            <button class="btn" id="recheckBtn" type="button" hidden>Re-check</button>
+          </div>
+          <p class="gate-note">Every write on this board is a transaction you confirm in your own wallet. GateBoard never asks for a seed phrase, private key, or pairing code, and there is no QR-code login.</p>
+        </div>
+      </div>
+
+      <!-- ============ BOARD + POST ============ -->
+      <section id="boardSection">
+        <div class="section-head">
+          <h2>The board</h2>
+          <p>Once GateBoard is deployed, reads are public and come straight from the contract on BNB Chain — until then, the samples below show the board's shape. Either way, the contract holds no funds: payment for finished work is arranged directly between the poster and the claimer, off-chain.</p>
+        </div>
+        <div class="board-grid">
+          <div class="panel">
+            <div class="board-toolbar">
+              <span class="mode-badge" id="modeBadge">Preview mode</span>
+              <span class="spacer"></span>
+              <button class="btn small" id="refreshBtn" type="button">Refresh</button>
+            </div>
+            <p class="board-msg" id="boardMsg" aria-live="polite"></p>
+            <div id="boardList"></div>
+          </div>
+
+          <div class="panel">
+            <h3>Post a bounty</h3>
+            <form id="postForm" novalidate>
+              <label for="fTitle">Title</label>
+              <input type="text" id="fTitle" maxlength="100" autocomplete="off" placeholder="What needs doing?" />
+              <div class="counter"><span id="titleCount">0</span>/100</div>
+              <label for="fDesc">Description</label>
+              <textarea id="fDesc" maxlength="500" placeholder="The details: what done looks like, how the claimer reaches you, how you'll pay."></textarea>
+              <div class="counter"><span id="descCount">0</span>/500</div>
+              <div class="gate-actions">
+                <button class="btn primary" id="postBtn" type="submit">Post bounty</button>
+              </div>
+              <p class="form-msg" id="formMsg" aria-live="polite"></p>
+              <p class="form-note" id="formNote">Posting writes to the GateBoard contract, so it needs a connected wallet holding an Agent ID — the contract rejects everyone else. No BNB is deposited: the contract never holds funds.</p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOW IT WORKS ============ -->
+      <section>
+        <div class="section-head">
+          <h2>How it works</h2>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="num">1</div>
+            <h3>Claim your name.ai</h3>
+            <p>In the Binance App: Wallet → homepage banner → Agent ID. One per user, non-transferable, claimed once and yours. That's the whole sign-up — there is no GateBoard account.</p>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <h3>Connect &amp; get checked</h3>
+            <p>Connect your wallet above. GateBoard calls <span class="mono">balanceOf</span> on the Agent ID contract (<span class="mono">0x60b9…022f</span>). More than 0 and the gate opens; 0 and posting stays locked.</p>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <h3>Post or claim on-chain</h3>
+            <p>Posting and claiming are contract calls, confirmed by you in your wallet. The poster marks a claimed bounty done; the reward itself moves off-chain, wallet to wallet.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FOR JUDGES ============ -->
+      <section>
+        <div class="section-head">
+          <h2>For the judges</h2>
+          <p>GateBoard is an entry to the Binance Agent ID Hackathon (Binance Wallet × BNB Chain). The facts below are from the official announcement.</p>
+        </div>
+        <div class="judge-grid">
+          <div class="panel">
+            <dl class="facts">
+              <div class="row"><dt>Submissions</dt><dd>18 Nov – 9 Dec 2026 <span class="light">08:00 UTC</span></dd></div>
+              <div class="row"><dt>Prize pool</dt><dd>60,000 USDC <span class="light">— two project awards of 29,000 each, plus a 2,000 community promotion award</span></dd></div>
+              <div class="row"><dt>Per award</dt><dd>1st 10,000 · 2nd 6,000 · 3rd 4,000 · 4th 3,000 · 5th 2,000 · 6th–10th 800 USDC</dd></div>
+              <div class="row"><dt>Track one</dt><dd>Ranked on-chain <span class="light">— number of interacting Agent ID addresses and transaction count / volume</span></dd></div>
+              <div class="row"><dt>Track two</dt><dd>Innovation Award <span class="light">— scored by the judging panel, criteria at right</span></dd></div>
+              <div class="row"><dt>Required</dt><dd>Deployed on BNB Chain, contract verified &amp; open-source on BscScan, Agent ID actively used</dd></div>
+            </dl>
+            <div class="req30">
+              <strong>The 30-address bar</strong>
+              The Innovation Award is only open to live products that at least <strong>30 Agent ID addresses</strong> have interacted with during the submission period. Every post and every claim on GateBoard is one of those interactions — that's what the push below is for.
+            </div>
+            <ul class="link-list">
+              <li><a href="https://www.binance.com/en/support/announcement/detail/95f5dbe0ea674a48a739b59e046648bf" target="_blank" rel="noopener">Official hackathon announcement</a></li>
+              <li><a href="https://www.binance.com/en/square/post/389517345917641" target="_blank" rel="noopener">Announcement on Binance Square</a></li>
+              <li><a href="https://bscscan.com/address/0x60b9262456de011f7d15a54cdd8c48baaa8b022f" target="_blank" rel="noopener">Agent ID contract on BscScan</a> <span class="mono">0x60b9262456de011f7d15a54cdd8c48baaa8b022f</span></li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3 style="margin-bottom:6px;">How the panel scores — and how GateBoard answers</h3>
+            <div class="score-row">
+              <div class="score-top"><span>Agent ID Application Depth</span><span class="pct">30%</span></div>
+              <div class="bar"><i style="width:30%"></i></div>
+              <p>The gate <em>is</em> the product. <span class="mono">createBounty</span> and <span class="mono">claimBounty</span> both revert without an Agent ID, enforced inside the contract — not hidden behind a login on this page.</p>
+            </div>
+            <div class="score-row">
+              <div class="score-top"><span>Practicality &amp; Feasibility</span><span class="pct">25%</span></div>
+              <div class="bar"><i style="width:25%"></i></div>
+              <p>A real job board for agent-era micro-work: post a task, a verified holder claims it, the poster marks it done. No escrow complexity in v1 — the contract holds no funds.</p>
+            </div>
+            <div class="score-row">
+              <div class="score-top"><span>Product Completion</span><span class="pct">25%</span></div>
+              <div class="bar"><i style="width:25%"></i></div>
+              <p>The full loop — gate check, post, claim, complete, cancel — is implemented end to end in the contract and this page. It goes live on BNB Chain mainnet the moment GateBoard is deployed and its source verified on BscScan (checklist below); until then the board above runs in preview so the whole flow can be reviewed first.</p>
+            </div>
+            <div class="score-row">
+              <div class="score-top"><span>Innovation</span><span class="pct">20%</span></div>
+              <div class="bar"><i style="width:20%"></i></div>
+              <p>Identity as write-permission. Your name.ai is your posting rights — no accounts, no passwords, no server session, and no admin who can let anyone in the back door. There is no owner key at all.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DEPLOY CHECKLIST ============ -->
+      <section>
+        <div class="section-head">
+          <h2>Deploy checklist</h2>
+          <p>GateBoard.sol is written and ready. These are the steps to take it live — all doable from a phone with Remix and the Binance Wallet.</p>
+        </div>
+        <ol class="checklist">
+          <li><strong>Open GateBoard.sol in Remix</strong><span>The contract source is in the project folder (hackathon-binance-gateboard/GateBoard.sol). Paste it into a new file in Remix.</span></li>
+          <li><strong>Compile with Solidity 0.8.20 or later</strong><span>Note the exact compiler version and optimizer setting you use — BscScan verification must match them.</span></li>
+          <li><strong>Deploy on BNB Chain mainnet (chain 56)</strong><span>Constructor argument is the Agent ID contract: <span class="mono">0x60b9262456de011f7d15a54cdd8c48baaa8b022f</span>. Deploy from the wallet that holds your Agent ID, with a little BNB for gas.</span></li>
+          <li><strong>Verify the source on BscScan</strong><span>Same source, same compiler settings, constructor argument encoded. The listing must show the code as verified and open-source — that's a hackathon requirement.</span></li>
+          <li><strong>Point this page at the contract</strong><span>Paste the deployed GateBoard address into <span class="mono">GATEBOARD_ADDRESS</span> at the top of this page's script and republish. The board switches from preview to live reads and writes.</span></li>
+          <li><strong>Seed the board</strong><span>Post 2–3 real bounties from your Agent ID wallet so the first visitors see a working board, not an empty one.</span></li>
+          <li><strong>Push for 30 Agent ID addresses</strong><span>Share the invite post below. Every distinct Agent ID holder who posts or claims counts toward the Innovation Award bar — and toward the on-chain activity track.</span></li>
+          <li><strong>Submit before 9 Dec 2026, 08:00 UTC</strong><span>Project name, this page as the website, the GateBoard contract address, and the Agent ID usage description — the submission blurb below is ready to paste.</span></li>
+        </ol>
+      </section>
+
+      <!-- ============ SHARE COPY ============ -->
+      <section>
+        <div class="section-head">
+          <h2>Copy for the push</h2>
+          <p>Ready to paste. The X post also counts toward the hackathon's community promotion award when it carries the two official hashtags — submit its link through the official campaign survey afterwards.</p>
+        </div>
+        <div class="copy-grid">
+          <div class="copy-block">
+            <div class="copy-head"><h3>Invite post for X</h3><button class="btn small" type="button" data-copy="copyX">Copy</button></div>
+            <p class="copy-text" id="copyX">I built GateBoard for the #BinanceWalletHackathon — a bounty board where your Agent ID is the key.
+
+Only wallets holding a name.ai can post or claim a bounty. It's enforced by the contract itself (a balanceOf check on the Agent ID contract) — no sign-up, no accounts, no admin who can let anyone in.
+
+Goal: 30 Agent ID holders interacting before 9 Dec. Post a task or claim one here: [paste board link]
+
+#AgenticWallet</p>
+          </div>
+          <div class="copy-block">
+            <div class="copy-head"><h3>Submission blurb</h3><button class="btn small" type="button" data-copy="copyBlurb">Copy</button></div>
+            <p class="copy-text" id="copyBlurb">GateBoard — Agent ID-gated bounty board (BNB Chain)
+
+GateBoard is a bounty board where an Agent ID is not a badge but the write permission itself. The GateBoard contract checks balanceOf on the official SPACE ID Agent ID contract (0x60b9262456de011f7d15a54cdd8c48baaa8b022f) inside createBounty() and claimBounty(), so a wallet without a name.ai cannot post or claim, while anyone can read the board. There is no owner, admin, fee, or custody: the contract holds no funds, and payment for completed work is arranged off-chain between poster and claimer.
+
+Agent ID usage: identity + access control. Your name.ai is your account — no sign-up, no password, no server session.</p>
+          </div>
+          <div class="copy-block">
+            <div class="copy-head"><h3>2-minute video pitch — outline</h3><button class="btn small" type="button" data-copy="copyPitch">Copy</button></div>
+            <p class="copy-text" id="copyPitch">0:00–0:15 — The problem: open boards fill up with spam and throwaway accounts. Nobody knows who stands behind a post.
+0:15–0:45 — The idea: GateBoard makes an Agent ID the key. Show the gate check — connect a wallet with no Agent ID and show posting locked.
+0:45–1:20 — The demo: connect an Agent ID wallet, post a bounty, then claim it from a second Agent ID wallet. Show both transactions on BscScan.
+1:20–1:45 — Why it's built this way: the gate lives in the contract, not the website. No owner, no admin, no funds held.
+1:45–2:00 — The ask: 30 Agent ID addresses need to interact before 9 Dec — open the board, post a bounty, claim one.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div>GateBoard is an independent hackathon entry. It is not affiliated with Binance or BNB Chain, and it does not use their branding as its own.</div>
+        <div>The GateBoard contract holds no funds and has no owner or admin functions. Rewards for completed bounties are arranged directly between poster and claimer. Always confirm every transaction in your own wallet before signing.</div>
+      </footer>
+    </div>
+
+    <script>
+      "use strict";
+      /* ================================================================
+         CONFIG — edit GATEBOARD_ADDRESS after deploying GateBoard.sol,
+         then republish this page. Everything else is already set.
+         ================================================================ */
+      const CONFIG = {
+        AGENT_ID_CONTRACT: "0x60b9262456de011f7d15a54cdd8c48baaa8b022f", // SPACE ID Agent ID, BNB Chain
+        GATEBOARD_ADDRESS: "0xa3e2ee2d4f0df7ab8ebc497790f50bf5a7a39d6c", // GateBoard, deployed on BNB Chain mainnet
+        CHAIN_ID_HEX: "0x38", // BNB Chain mainnet = 56
+        BSC_RPC: "https://bsc-dataseed.binance.org",
+        DEADLINE_UTC: "2026-12-09T08:00:00Z"
+      };
+
+      /* Function selectors (keccak256, first 4 bytes) */
+      const SEL = {
+        balanceOf: "0x70a08231",
+        bountyCount: "0x3e362c96",
+        getBounty: "0xee8c4bbf",
+        createBounty: "0x6d2008a5",
+        claimBounty: "0x44021ad7",
+        completeBounty: "0x139005ab",
+        cancelBounty: "0xe5e5dff1"
+      };
+
+      const STATUS_NAMES = ["Open", "Claimed", "Done", "Cancelled"];
+      const STATUS_CLASS = ["open", "claimed", "done", "cancelled"];
+      const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+
+      const state = {
+        account: null,
+        chainId: null,
+        gate: "disconnected", // nowallet | disconnected | wrongnetwork | checking | holder | nonholder | error
+        balance: null,
+        bounties: [],
+        live: !!CONFIG.GATEBOARD_ADDRESS
+      };
+
+      /* ---------- wallet provider detection ----------
+         Same approach as the GateBoard Deploy page: Binance Web3 Wallet
+         (window.binancew3w.ethereum) first, then window.ethereum,
+         window.BinanceChain, any isBinance entry in
+         window.ethereum.providers, and EIP-6963 announced providers
+         (Rabby, Zerion, …). Detection retries on load, and Connect
+         re-scans, because wallet browsers inject late. */
+      let provider = null;
+      const eip6963Providers = [];
+
+      function isUsable(p) {
+        return !!p && typeof p.request === "function";
+      }
+      function findProvider() {
+        // 1. Binance Web3 Wallet
+        try { if (window.binancew3w && isUsable(window.binancew3w.ethereum)) return window.binancew3w.ethereum; } catch (e) {}
+        // 2. Standard injected provider
+        try { if (isUsable(window.ethereum)) return window.ethereum; } catch (e) {}
+        // 3. BinanceChain
+        try { if (isUsable(window.BinanceChain)) return window.BinanceChain; } catch (e) {}
+        // 4. Any isBinance entry in the providers array
+        try {
+          if (window.ethereum && window.ethereum.providers) {
+            for (const p of window.ethereum.providers) {
+              if (p && p.isBinance && isUsable(p)) return p;
+            }
+          }
+        } catch (e) {}
+        // 5. Any EIP-6963 announced provider
+        for (const entry of eip6963Providers) {
+          if (isUsable(entry.provider)) return entry.provider;
+        }
+        // 6. First usable provider in the providers array
+        try {
+          if (window.ethereum && window.ethereum.providers) {
+            for (const p of window.ethereum.providers) {
+              if (isUsable(p)) return p;
+            }
+          }
+        } catch (e) {}
+        return null;
+      }
+      function rescanProvider() {
+        provider = findProvider();
+        if (provider) attachProviderEvents(provider);
+        return provider;
+      }
+      function requestEIP6963() {
+        try { window.dispatchEvent(new Event("eip6963:requestProvider")); } catch (e) {}
+      }
+      window.addEventListener("eip6963:announceProvider", (ev) => {
+        try {
+          const d = ev.detail || {};
+          const name = (d.info && (d.info.name || d.info.rdns)) || "unknown";
+          if (!eip6963Providers.some((x) => x.name === name)) {
+            eip6963Providers.push({ name: name, provider: d.provider });
+          }
+          const had = !!provider;
+          rescanProvider();
+          if (!had && provider && state.gate === "nowallet") checkGate();
+        } catch (e) {}
+      });
+      function attachProviderEvents(p) {
+        if (!p || p.__gateboardEvents || typeof p.on !== "function") return;
+        p.__gateboardEvents = true;
+        p.on("accountsChanged", (accs) => {
+          state.account = accs && accs.length ? accs[0] : null;
+          state.balance = null;
+          checkGate();
+        });
+        p.on("chainChanged", () => { checkGate(); });
+      }
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        pill: $("gatePill"), msg: $("gateMsg"), wallet: $("gateWallet"),
+        network: $("gateNetwork"), result: $("gateResult"),
+        connect: $("connectBtn"), switchBtn: $("switchBtn"), recheck: $("recheckBtn"),
+        boardList: $("boardList"), boardMsg: $("boardMsg"), modeBadge: $("modeBadge"),
+        form: $("postForm"), title: $("fTitle"), desc: $("fDesc"),
+        titleCount: $("titleCount"), descCount: $("descCount"),
+        postBtn: $("postBtn"), formMsg: $("formMsg"), formNote: $("formNote"),
+        countdown: $("countdown")
+      };
+
+      /* ---------- small helpers ---------- */
+      function truncate(addr) {
+        if (!addr) return "—";
+        return addr.slice(0, 6) + "…" + addr.slice(-4);
+      }
+      function pad64(hexNoPrefix) {
+        return hexNoPrefix.padStart(64, "0");
+      }
+      function encodeUint(n) {
+        return pad64(BigInt(n).toString(16));
+      }
+      function encodeAddress(addr) {
+        return pad64(addr.toLowerCase().replace(/^0x/, ""));
+      }
+      function hexToBytes(hex) {
+        const clean = hex.replace(/^0x/, "");
+        const out = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substr(i * 2, 2), 16);
+        return out;
+      }
+      function bytesToHex(bytes) {
+        let s = "";
+        for (const b of bytes) s += b.toString(16).padStart(2, "0");
+        return s;
+      }
+      function wordAt(hex, i) {
+        const clean = hex.replace(/^0x/, "");
+        return clean.substr(i * 64, 64);
+      }
+      function uintAt(hex, i) {
+        return BigInt("0x" + wordAt(hex, i));
+      }
+      function addressAt(hex, i) {
+        return "0x" + wordAt(hex, i).slice(24);
+      }
+      function stringAt(hex, wordIdx) {
+        const clean = hex.replace(/^0x/, "");
+        const byteOffset = Number(uintAt(hex, wordIdx));
+        const lenWordIdx = byteOffset / 32;
+        const len = Number(uintAt(hex, lenWordIdx));
+        const dataStart = (lenWordIdx + 1) * 64;
+        const bytes = hexToBytes(clean.substr(dataStart, len * 2));
+        return new TextDecoder().decode(bytes);
+      }
+      function encodeStringTail(str) {
+        const bytes = new TextEncoder().encode(str);
+        const paddedLen = Math.ceil(bytes.length / 32) * 32;
+        return pad64(bytes.length.toString(16)) + bytesToHex(bytes).padEnd(paddedLen * 2, "0");
+      }
+      function shortError(e) {
+        if (!e) return "Unknown error.";
+        const m = (e.message || String(e)).split("\n")[0];
+        return m.length > 140 ? m.slice(0, 140) + "…" : m;
+      }
+      function fmtDate(unixSeconds) {
+        try {
+          return new Date(Number(unixSeconds) * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+        } catch (e) { return ""; }
+      }
+
+      /* ---------- chain reads (public RPC, no wallet needed) ---------- */
+      async function ethCall(to, data) {
+        const res = await fetch(CONFIG.BSC_RPC, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: to, data: data }, "latest"] })
+        });
+        if (!res.ok) throw new Error("RPC request failed (" + res.status + ")");
+        const json = await res.json();
+        if (json.error) throw new Error(json.error.message || "RPC error");
+        return json.result;
+      }
+
+      /* ---------- gate check ---------- */
+      function renderGate() {
+        const pill = els.pill;
+        pill.className = "pill";
+        els.wallet.textContent = state.account ? truncate(state.account) : "—";
+        els.network.textContent = state.chainId === CONFIG.CHAIN_ID_HEX ? "BNB Chain (56)" : (state.chainId ? "Other network (" + state.chainId + ")" : "—");
+        els.switchBtn.hidden = state.gate !== "wrongnetwork";
+        els.recheck.hidden = !(state.account && state.gate !== "checking");
+        els.connect.textContent = state.account ? "Wallet connected" : "Connect wallet";
+        els.connect.disabled = !!state.account;
+
+        if (state.gate === "nowallet") {
+          pill.textContent = "No wallet found";
+          pill.classList.add("warn");
+          els.result.textContent = "—";
+          els.msg.textContent = "This browser has no injected wallet. Open this page inside the Binance Wallet app browser, or in a desktop browser with MetaMask or Binance Wallet installed, then try again.";
+        } else if (state.gate === "disconnected") {
+          pill.textContent = "Not connected";
+          els.result.textContent = "—";
+          els.msg.textContent = "Connect your wallet to run the check. Connecting only reads your address — you sign nothing.";
+        } else if (state.gate === "wrongnetwork") {
+          pill.textContent = "Wrong network";
+          pill.classList.add("warn");
+          els.result.textContent = "—";
+          els.msg.textContent = "Your wallet is not on BNB Chain. Switch to BNB Smart Chain (chain 56) and the check runs again automatically.";
+        } else if (state.gate === "checking") {
+          pill.textContent = "Checking on-chain…";
+          pill.classList.add("busy");
+          els.result.textContent = "balanceOf → …";
+          els.msg.textContent = "Reading the Agent ID contract on BNB Chain.";
+        } else if (state.gate === "holder") {
+          pill.textContent = "Agent ID verified — you're in";
+          pill.classList.add("ok");
+          els.result.textContent = "balanceOf → " + state.balance + " (holds an Agent ID)";
+          els.msg.textContent = "The gate is open for this wallet: you can post and claim bounties" + (state.live ? "." : " once the board is live.");
+        } else if (state.gate === "nonholder") {
+          pill.textContent = "No Agent ID on this wallet";
+          pill.classList.add("warn");
+          els.result.textContent = "balanceOf → 0 (no Agent ID)";
+          els.msg.textContent = "This wallet doesn't hold an Agent ID yet, so posting and claiming stay locked. Claim one free in the Binance App: Wallet → homepage banner → Agent ID, then come back and re-check.";
+        } else if (state.gate === "error") {
+          pill.textContent = "Check failed";
+          pill.classList.add("err");
+          els.result.textContent = "—";
+        }
+        renderBoard();
+      }
+
+      async function checkGate() {
+        if (!rescanProvider()) { state.gate = "nowallet"; renderGate(); return; }
+        try {
+          if (!state.account) {
+            const accs = await provider.request({ method: "eth_accounts" });
+            if (accs && accs.length) state.account = accs[0];
+          }
+          if (!state.account) { state.gate = "disconnected"; renderGate(); return; }
+          state.chainId = await provider.request({ method: "eth_chainId" });
+          if (state.chainId !== CONFIG.CHAIN_ID_HEX) { state.gate = "wrongnetwork"; renderGate(); return; }
+          state.gate = "checking"; renderGate();
+          const data = SEL.balanceOf + encodeAddress(state.account);
+          const result = await ethCall(CONFIG.AGENT_ID_CONTRACT, data);
+          state.balance = BigInt(result).toString();
+          state.gate = BigInt(result) > 0n ? "holder" : "nonholder";
+          renderGate();
+        } catch (e) {
+          state.gate = "error";
+          renderGate();
+          els.msg.textContent = "The check didn't complete: " + shortError(e) + " Check your connection and hit Re-check.";
+        }
+      }
+
+      async function connectWallet() {
+        // Re-scan on tap: wallet browsers (Binance Web3, Rabby, Zerion)
+        // may inject or announce their provider after the page loaded.
+        requestEIP6963();
+        if (!rescanProvider()) { state.gate = "nowallet"; renderGate(); return; }
+        try {
+          const accs = await provider.request({ method: "eth_requestAccounts" });
+          state.account = accs && accs.length ? accs[0] : null;
+          await checkGate();
+        } catch (e) {
+          state.gate = "error";
+          renderGate();
+          els.msg.textContent = "Connection was not completed: " + shortError(e);
+        }
+      }
+
+      async function switchNetwork() {
+        if (!rescanProvider()) return;
+        try {
+          await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CONFIG.CHAIN_ID_HEX }] });
+          await checkGate();
+        } catch (e) {
+          els.msg.textContent = "The switch didn't go through (" + shortError(e) + "). Open your wallet, switch the network to BNB Smart Chain (chain 56) yourself, then hit Re-check.";
+        }
+      }
+
+      /* ---------- board ---------- */
+      const PREVIEW_BOUNTIES = [
+        { sample: true, status: 0, title: "Write a plain-English explainer: what is an Agent ID?", description: "About 200 words a first-time Binance Wallet user can follow. What a name.ai is, how to claim one, and why apps gate on it.", creator: "Sample poster", createdAt: null },
+        { sample: true, status: 0, title: "Test the claim flow and report confusing steps", description: "Connect an Agent ID wallet, claim this bounty, and note anything unclear along the way. Short written report is the deliverable.", creator: "Sample poster", createdAt: null },
+        { sample: true, status: 1, title: "Translate the GateBoard pitch into Spanish", description: "Translate the 2-minute pitch outline into natural Spanish for a community post. Claimed already in this preview — on the live board you'd see who claimed it.", creator: "Sample poster", createdAt: null }
+      ];
+
+      function bountyCard(b) {
+        const card = document.createElement("article");
+        card.className = "bounty";
+        const top = document.createElement("div");
+        top.className = "bounty-top";
+        const h = document.createElement("h3");
+        h.textContent = b.title || "(untitled)";
+        const chip = document.createElement("span");
+        chip.className = "status-chip " + (STATUS_CLASS[b.status] || "");
+        chip.textContent = STATUS_NAMES[b.status] || "Unknown";
+        top.appendChild(h); top.appendChild(chip);
+        card.appendChild(top);
+        if (b.description) {
+          const p = document.createElement("p");
+          p.textContent = b.description;
+          card.appendChild(p);
+        }
+        const meta = document.createElement("div");
+        meta.className = "bounty-meta";
+        const bits = [];
+        if (b.sample) bits.push("Preview sample — not on-chain");
+        else bits.push("Bounty #" + b.id);
+        bits.push("Posted by " + (b.sample ? b.creator : truncate(b.creator)));
+        if (b.claimer && b.claimer !== ZERO_ADDR) bits.push("Claimed by " + truncate(b.claimer));
+        if (b.createdAt) bits.push(fmtDate(b.createdAt));
+        meta.textContent = bits.join("  ·  ");
+        card.appendChild(meta);
+
+        const actions = document.createElement("div");
+        actions.className = "bounty-actions";
+        const isCreator = state.account && b.creator && state.account.toLowerCase() === b.creator.toLowerCase();
+        if (b.sample || !state.live) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn small";
+          btn.disabled = true;
+          btn.title = "Preview mode — deploy GateBoard and set GATEBOARD_ADDRESS to enable posting and claiming.";
+          btn.textContent = b.status === 0 ? "Claim" : "Claimed";
+          actions.appendChild(btn);
+        } else if (b.status === 0 && !isCreator) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn small primary";
+          btn.dataset.action = "claim";
+          btn.dataset.id = b.id;
+          btn.disabled = state.gate !== "holder";
+          btn.title = state.gate === "holder" ? "" : "Connect a wallet holding an Agent ID to claim.";
+          btn.textContent = "Claim this bounty";
+          actions.appendChild(btn);
+        } else if (b.status === 0 && isCreator) {
+          const btn = document.createElement("button");
+          btn.type = "button"; btn.className = "btn small";
+          btn.dataset.action = "cancel"; btn.dataset.id = b.id;
+          btn.textContent = "Cancel bounty";
+          actions.appendChild(btn);
+        } else if (b.status === 1 && isCreator) {
+          const btn = document.createElement("button");
+          btn.type = "button"; btn.className = "btn small primary";
+          btn.dataset.action = "complete"; btn.dataset.id = b.id;
+          btn.textContent = "Mark done";
+          actions.appendChild(btn);
+        }
+        if (actions.children.length) card.appendChild(actions);
+        return card;
+      }
+
+      function renderBoard() {
+        els.modeBadge.textContent = state.live ? "Live — reading GateBoard on BNB Chain" : "Preview mode — GateBoard not deployed yet";
+        els.modeBadge.classList.toggle("live", state.live);
+        els.postBtn.disabled = !state.live;
+        els.postBtn.title = state.live ? "" : "Preview mode — deploy GateBoard and set GATEBOARD_ADDRESS to enable posting.";
+        els.formNote.textContent = state.live
+          ? "Posting writes to the GateBoard contract, so it needs a connected wallet holding an Agent ID — the contract rejects everyone else. No BNB is deposited: the contract never holds funds."
+          : "Preview mode: this form is disabled because GateBoard isn't deployed yet. Deploy the contract, paste its address into GATEBOARD_ADDRESS in this page's config, and posting turns on — gated by the same Agent ID check as the board.";
+        els.boardList.innerHTML = "";
+        const list = state.live ? state.bounties : PREVIEW_BOUNTIES;
+        if (state.live && !list.length) {
+          const d = document.createElement("div");
+          d.className = "empty-note";
+          d.textContent = "No bounties on-chain yet. Be the first Agent ID holder to post one.";
+          els.boardList.appendChild(d);
+          return;
+        }
+        list.slice().reverse().forEach((b) => els.boardList.appendChild(bountyCard(b)));
+      }
+
+      async function loadBoard() {
+        if (!state.live) {
+          els.boardMsg.textContent = "These are preview samples so you can see the board's shape. Once GateBoard is deployed and its address is set in the config, this list is read live from the contract instead.";
+          renderBoard();
+          return;
+        }
+        els.boardMsg.textContent = "Reading the board from BNB Chain…";
+        try {
+          const countHex = await ethCall(CONFIG.GATEBOARD_ADDRESS, SEL.bountyCount);
+          const count = Number(BigInt(countHex));
+          const out = [];
+          const cap = Math.min(count, 100);
+          for (let i = 0; i < cap; i++) {
+            const hex = await ethCall(CONFIG.GATEBOARD_ADDRESS, SEL.getBounty + encodeUint(i));
+            out.push({
+              id: Number(uintAt(hex, 0)),
+              creator: addressAt(hex, 1),
+              claimer: addressAt(hex, 2),
+              title: stringAt(hex, 3),
+              description: stringAt(hex, 4),
+              status: Number(uintAt(hex, 5)),
+              createdAt: uintAt(hex, 6)
+            });
+          }
+          state.bounties = out;
+          els.boardMsg.textContent = count === 0 ? "" : "Showing " + out.length + " of " + count + " bounties, newest first.";
+          renderBoard();
+        } catch (e) {
+          els.boardMsg.textContent = "Couldn't read the board: " + shortError(e) + " Tap Refresh to try again.";
+        }
+      }
+
+      /* ---------- writes ---------- */
+      async function sendWrite(data, doneText) {
+        if (!provider || !state.account) throw new Error("Connect your wallet first.");
+        if (state.chainId !== CONFIG.CHAIN_ID_HEX) throw new Error("Switch your wallet to BNB Chain (chain 56) first.");
+        const hash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [{ from: state.account, to: CONFIG.GATEBOARD_ADDRESS, data: data }]
+        });
+        els.boardMsg.textContent = doneText + " Transaction: " + hash + " — once it confirms, tap Refresh to see the update.";
+        setTimeout(loadBoard, 12000);
+        return hash;
+      }
+
+      async function handleBoardAction(ev) {
+        const btn = ev.target.closest("button[data-action]");
+        if (!btn || btn.disabled) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        const sel = action === "claim" ? SEL.claimBounty : action === "complete" ? SEL.completeBounty : SEL.cancelBounty;
+        const doneText = action === "claim" ? "Claim sent." : action === "complete" ? "Marked done." : "Cancellation sent.";
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = "Confirm in your wallet…";
+        try {
+          await sendWrite(sel + encodeUint(id), doneText);
+        } catch (e) {
+          els.boardMsg.textContent = "That didn't go through: " + shortError(e);
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      }
+
+      async function handlePost(ev) {
+        ev.preventDefault();
+        els.formMsg.textContent = "";
+        if (!state.live) {
+          els.formMsg.textContent = "Preview mode: posting turns on once GateBoard is deployed and its address is set in this page's config.";
+          return;
+        }
+        const title = els.title.value.trim();
+        const desc = els.desc.value.trim();
+        if (!title) { els.formMsg.textContent = "Give the bounty a title first."; els.title.focus(); return; }
+        if (title.length > 100 || desc.length > 500) { els.formMsg.textContent = "Title max 100 characters, description max 500 — the contract rejects longer text."; return; }
+        if (state.gate !== "holder") {
+          els.formMsg.textContent = "The gate check comes first: connect a wallet holding an Agent ID (top of the page), then post.";
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+        const titleTail = encodeStringTail(title);
+        const descTail = encodeStringTail(desc);
+        const titleBytes = new TextEncoder().encode(title).length;
+        const descOffset = 64 + 32 + Math.ceil(titleBytes / 32) * 32;
+        const data = SEL.createBounty + encodeUint(64) + encodeUint(descOffset) + titleTail + descTail;
+        els.postBtn.disabled = true;
+        const original = els.postBtn.textContent;
+        els.postBtn.textContent = "Confirm in your wallet…";
+        try {
+          await sendWrite(data, "Bounty posted.");
+          els.formMsg.textContent = "Posted. Once the transaction confirms, Refresh the board to see it.";
+          els.title.value = ""; els.desc.value = "";
+          els.titleCount.textContent = "0"; els.descCount.textContent = "0";
+        } catch (e) {
+          els.formMsg.textContent = "Posting didn't go through: " + shortError(e);
+        } finally {
+          els.postBtn.disabled = false;
+          els.postBtn.textContent = original;
+        }
+      }
+
+      /* ---------- countdown ---------- */
+      function tickCountdown() {
+        const diff = new Date(CONFIG.DEADLINE_UTC).getTime() - Date.now();
+        if (diff <= 0) { els.countdown.textContent = "· submissions closed"; return; }
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        els.countdown.textContent = "· " + d + "d " + h + "h " + m + "m left";
+      }
+
+      /* ---------- copy buttons ---------- */
+      async function copyText(id, btn) {
+        const text = $(id).innerText;
+        const original = btn.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.textContent = "Copied ✓";
+        } catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); btn.textContent = "Copied ✓"; }
+          catch (e2) { btn.textContent = "Select & copy manually"; }
+          document.body.removeChild(ta);
+        }
+        setTimeout(() => { btn.textContent = original; }, 2200);
+      }
+
+      /* ---------- wiring ---------- */
+      els.connect.addEventListener("click", connectWallet);
+      els.switchBtn.addEventListener("click", switchNetwork);
+      els.recheck.addEventListener("click", checkGate);
+      $("refreshBtn").addEventListener("click", loadBoard);
+      els.boardList.addEventListener("click", handleBoardAction);
+      els.form.addEventListener("submit", handlePost);
+      els.title.addEventListener("input", () => { els.titleCount.textContent = els.title.value.length; });
+      els.desc.addEventListener("input", () => { els.descCount.textContent = els.desc.value.length; });
+      document.querySelectorAll("[data-copy]").forEach((btn) => {
+        btn.addEventListener("click", () => copyText(btn.dataset.copy, btn));
+      });
+      // Wallet providers often inject after the page loads (especially in
+      // in-app wallet browsers), so detect now and retry on load; if a
+      // provider shows up late while the gate says "no wallet", re-check.
+      rescanProvider();
+      requestEIP6963();
+      window.addEventListener("load", () => {
+        [500, 1500, 3000].forEach((ms) => setTimeout(() => {
+          const had = !!provider;
+          rescanProvider();
+          requestEIP6963();
+          if (!had && provider && state.gate === "nowallet") checkGate();
+        }, ms));
+      });
+      tickCountdown();
+      setInterval(tickCountdown, 30000);
+      checkGate();
+      loadBoard();
+    </script>
+  </body>
+</html>
